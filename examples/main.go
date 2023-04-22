@@ -25,7 +25,7 @@ func mustUnmarshalJSON(s string, v interface{}) {
 }
 
 func main() {
-	clientCfg := &griffin.ClientConfig{
+	clientCfg := &griffin.OidcClientConfig{
 		ClientID:          "clientid",
 		ClientSecret:      "clientsecret",
 		Domain:            "localhost:1234",
@@ -33,8 +33,11 @@ func main() {
 		GriffinBackendURL: "http://localhost:8080",
 		RedirectURL:       "http://localhost:1234/callback",
 	}
-	griffinClient := griffin.NewClient(clientCfg)
-
+	griffinClient := griffin.NewOidcClient(clientCfg)
+	err := griffinClient.Init()
+	if err != nil {
+		panic(err)
+	}
 	e := echo.New()
 
 	e.GET("/", func(c echo.Context) error {
@@ -56,6 +59,7 @@ func main() {
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
+		print("AuthURL: ", loginRequest.AuthURL)
 		return c.Redirect(http.StatusFound, loginRequest.AuthURL)
 	})
 
@@ -74,12 +78,17 @@ func main() {
 		var authVerificationParams griffin.AuthVerificationParams
 		mustUnmarshalJSON(string(cookieBytes[:]), &authVerificationParams)
 
-		tokenResponse, err := griffinClient.HandleLoginRedirectCallback(cbParams, &authVerificationParams)
+		tokenResponse, err := griffinClient.HandleLoginCallback(cbParams, &authVerificationParams)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		userinfo, err := griffinClient.GetUserInfo(tokenResponse.AccessToken)
-		return c.JSON(http.StatusOK, userinfo)
+
+		resp := map[string]interface{}{
+			"tokenResponse": tokenResponse,
+			"userinfo":      userinfo,
+		}
+		return c.JSON(http.StatusOK, resp)
 	})
 
 	e.Logger.Fatal(e.Start(":1234"))
