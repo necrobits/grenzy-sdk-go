@@ -59,7 +59,7 @@ Handle the callback request
 
 ```golang
 router.GET("/callback", echoSp.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
-	userinfo, err := echoSp.Client.GetUserInfo(tokenResponse.AccessToken)
+    userinfo, err := echoSp.Client.GetUserInfo(tokenResponse.AccessToken)
     // ...
 }))
 ```

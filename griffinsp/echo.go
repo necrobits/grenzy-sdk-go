@@ -8,7 +8,7 @@ import (
 	"github.com/necrobits/griffin-sdk-go/griffin"
 )
 
-type EchoCallbackFunc func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error
+type EchoCallbackFunc func(c echo.Context, tokRes *griffin.TokenExchangeResponse) error
 
 type EchoSupport struct {
 	Client              *griffin.Client
