@@ -8,19 +8,19 @@ import (
 	"github.com/necrobits/griffin-sdk-go/griffin"
 )
 
-var griffinClient *griffin.OidcClient
-var clientCfg *griffin.OidcClientConfig
+var griffinClient *griffin.Client
+var clientCfg *griffin.ClientConfig
 
 func setup() {
 	// setup code
-	clientCfg = &griffin.OidcClientConfig{
-		ClientID:     "r9eo4WLGPr8O",
-		ClientSecret: "ulxwDX7fSCnN0p8D",
-		Domain:       "localhost:1234",
-		GriffinURL:   "http://localhost:4000",
-		RedirectURL:  "http://localhost:1234/callback",
+	clientCfg = &griffin.ClientConfig{
+		ClientID:        "r9eo4WLGPr8O",
+		ClientSecret:    "ulxwDX7fSCnN0p8D",
+		Domain:          "localhost:1234",
+		GriffinURL:      "http://localhost:4000",
+		OidcRedirectURL: "http://localhost:1234/callback",
 	}
-	griffinClient = griffin.NewOidcClient(clientCfg)
+	griffinClient = griffin.NewClient(clientCfg)
 }
 
 func shutdown() {

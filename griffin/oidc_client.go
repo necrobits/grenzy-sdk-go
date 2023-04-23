@@ -2,8 +2,10 @@ package griffin
 
 import (
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -12,25 +14,25 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type OidcClient struct {
-	cfg      *OidcClientConfig
-	http     *resty.Client
-	metadata *OidcServerMetadata
-	jwks     map[string]JWK
+type Client struct {
+	cfg          *ClientConfig
+	http         *resty.Client
+	oidcMetadata *OidcServerMetadata
+	jwks         map[string]parsedJwk
 }
 
-type JWK struct {
+type parsedJwk struct {
 	pub *rsa.PublicKey
 	kid string
 }
 
-type OidcClientConfig struct {
+type ClientConfig struct {
 	ClientID          string
 	ClientSecret      string
 	Domain            string
 	GriffinURL        string
 	GriffinBackendURL string // Dev only, not used in production
-	RedirectURL       string
+	OidcRedirectURL   string
 }
 
 type OidcServerMetadata struct {
@@ -54,7 +56,7 @@ const (
 	OpenIDConfigurationEndpoint = "/api/v1/openid/.well-known/openid-configuration"
 )
 
-func NewOidcClient(cfg *OidcClientConfig) *OidcClient {
+func NewClient(cfg *ClientConfig) *Client {
 	if !(strings.HasPrefix(cfg.GriffinURL, "http://") || strings.HasPrefix(cfg.GriffinURL, "https://")) {
 		panic("GriffinURL must start with http:// or https://")
 	}
@@ -67,7 +69,7 @@ func NewOidcClient(cfg *OidcClientConfig) *OidcClient {
 	httpClient := resty.New()
 	httpClient.SetHostURL(cfg.GriffinBackendURL)
 	httpClient.SetHeader("Content-Type", "application/json")
-	client := &OidcClient{
+	client := &Client{
 		http: httpClient,
 		cfg:  cfg,
 	}
@@ -75,8 +77,8 @@ func NewOidcClient(cfg *OidcClientConfig) *OidcClient {
 	return client
 }
 
-func (c *OidcClient) Init() error {
-	if c.metadata != nil {
+func (c *Client) Init() error {
+	if c.oidcMetadata != nil {
 		return nil
 	}
 	resp, err := c.http.R().Get(OpenIDConfigurationEndpoint)
@@ -91,8 +93,7 @@ func (c *OidcClient) Init() error {
 	if err != nil {
 		return err
 	}
-	c.metadata = metadata
-	fmt.Printf("%+v\n", c.metadata)
+	c.oidcMetadata = metadata
 
 	if err := c.RetrieveJwks(); err != nil {
 		return err
@@ -100,11 +101,18 @@ func (c *OidcClient) Init() error {
 	return nil
 }
 
+func (c *Client) checkOidcInitialized() error {
+	if c.oidcMetadata == nil {
+		return fmt.Errorf("Griffin OIDC is not initialized. Perhaps you forgot to call InitOidc()? ")
+	}
+	return nil
+}
+
 // RetrieveJwks retrieves the JSON Web Key Set from the OIDC server and stores
 // it in the client. If the client already has a JWK set, it will be replaced.
-// If the server rotates its keys, this function must be called again to update (somehow, maybe when the kid doesn't match)
-func (c *OidcClient) RetrieveJwks() error {
-	resp, err := c.http.R().Get(c.metadata.JwksURI)
+// If the server rotates its keys, this function must be called again to update
+func (c *Client) RetrieveJwks() error {
+	resp, err := c.http.R().Get(c.oidcMetadata.JwksURI)
 	if err != nil {
 		return err
 	}
@@ -116,9 +124,9 @@ func (c *OidcClient) RetrieveJwks() error {
 	if err != nil {
 		return err
 	}
-	c.jwks = make(map[string]JWK)
+	c.jwks = make(map[string]parsedJwk)
 	for _, jwk := range jwks.Keys {
-		c.jwks[jwk.KeyID] = JWK{
+		c.jwks[jwk.KeyID] = parsedJwk{
 			pub: jwk.Key.(*rsa.PublicKey),
 			kid: jwk.KeyID,
 		}
@@ -130,7 +138,10 @@ func (c *OidcClient) RetrieveJwks() error {
 // with Griffin. This function returns a LoginRequest struct that contains the
 // URL to redirect the user to and the verification parameters that must be
 // stored in the session, and passed to HandleLoginCallback() to verify the callback.
-func (c *OidcClient) GenerateLoginRequest(scopes []string) (*LoginRequest, error) {
+func (c *Client) GenerateLoginRequest(scopes []string) (*LoginRequest, error) {
+	if err := c.checkOidcInitialized(); err != nil {
+		return nil, err
+	}
 	// Use PKCE flow
 	codeVerifier, err := generateCodeVerifier()
 	codeVerifierStr := base64urlEncode(codeVerifier)
@@ -159,8 +170,8 @@ func (c *OidcClient) GenerateLoginRequest(scopes []string) (*LoginRequest, error
 	params.Add("nonce", nonceStr)
 	params.Add("state", stateStr)
 	params.Add("scope", strings.Join(scopes, " "))
-	params.Add("redirect_uri", c.cfg.RedirectURL)
-	authURL := fmt.Sprintf("%s?%s", c.metadata.AuthorizationEndpoint, params.Encode())
+	params.Add("redirect_uri", c.cfg.OidcRedirectURL)
+	authURL := fmt.Sprintf("%s?%s", c.oidcMetadata.AuthorizationEndpoint, params.Encode())
 	return &LoginRequest{
 		AuthURL: authURL,
 		AuthVerificationParams: &AuthVerificationParams{
@@ -171,7 +182,12 @@ func (c *OidcClient) GenerateLoginRequest(scopes []string) (*LoginRequest, error
 	}, nil
 }
 
-func (c *OidcClient) HandleLoginCallback(cbParams *CallbackParams, verificationParams *AuthVerificationParams) (*TokenResponse, error) {
+// HandleLoginCallback handles the callback from the OIDC server after the user has authenticated.
+// This function verifies the state and nonce, and exchanges the code for ID token and access token.
+// The ID token is also verified and the claims are returned in the TokenExchangeResponse.
+//
+// The verificationParams must be the same as the ones returned by GenerateLoginRequest().
+func (c *Client) HandleLoginCallback(cbParams *CallbackParams, verificationParams *AuthVerificationParams) (*TokenExchangeResponse, error) {
 	// Verify state
 	if cbParams.State != verificationParams.State {
 		return nil, fmt.Errorf("state mismatch")
@@ -194,7 +210,14 @@ func (c *OidcClient) HandleLoginCallback(cbParams *CallbackParams, verificationP
 	return tokenResp, nil
 }
 
-func (c *OidcClient) ExchangeToken(code string, verificationParams *AuthVerificationParams) (*TokenResponse, error) {
+// ExchangeToken exchanges the code for ID token and access token.
+//
+// The verificationParams must be the same as the ones returned by GenerateLoginRequest().
+func (c *Client) ExchangeToken(code string, verificationParams *AuthVerificationParams) (*TokenExchangeResponse, error) {
+	if err := c.checkOidcInitialized(); err != nil {
+		return nil, err
+	}
+
 	body := TokenExchangeRequest{
 		ClientID:     c.cfg.ClientID,
 		ClientSecret: c.cfg.ClientSecret,
@@ -208,7 +231,7 @@ func (c *OidcClient) ExchangeToken(code string, verificationParams *AuthVerifica
 	}
 	res, err := c.http.R().
 		SetBody(bodyBytes).
-		Post(c.metadata.TokenEndpoint)
+		Post(c.oidcMetadata.TokenEndpoint)
 
 	if err != nil {
 		return nil, err
@@ -217,28 +240,58 @@ func (c *OidcClient) ExchangeToken(code string, verificationParams *AuthVerifica
 		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode())
 	}
 	resultBytes := res.Body()
-	var tokenResp TokenResponse
+	var tokenResp TokenExchangeResponse
 	err = json.Unmarshal(resultBytes, &tokenResp)
 	return &tokenResp, nil
 }
 
-func (c *OidcClient) GetUserInfo(accessToken string) (*UserInfoResponse, error) {
+// GetUserinfo gets the user info from the OIDC server using the access token.
+func (c *Client) GetUserinfo(accessToken string) (*UserinfoResponse, error) {
+	if err := c.checkOidcInitialized(); err != nil {
+		return nil, err
+	}
+
 	res, err := c.http.R().
 		SetAuthToken(accessToken).
-		Get(c.metadata.UserInfoEndpoint)
+		Get(c.oidcMetadata.UserInfoEndpoint)
 	if err != nil {
 		return nil, err
 	}
 	bodyBytes := res.Body()
-	var userInfoResp UserInfoResponse
+	var userInfoResp UserinfoResponse
 	err = json.Unmarshal(bodyBytes, &userInfoResp)
 	return &userInfoResp, err
 }
 
-func (c *OidcClient) DecodeIDToken(idTokenString string) (*IDTokenClaims, error) {
+// DecodeIDToken decodes the ID token and verifies the signature.
+// The claims are returned in the IDTokenClaims struct.
+func (c *Client) DecodeIDToken(idTokenString string) (*IDTokenClaims, error) {
 	var claims IDTokenClaims
-	_, err := jwt.ParseWithClaims(idTokenString, &claims, func(token *jwt.Token) (interface{}, error) {
-		fmt.Printf("token: %+v", token.Header)
+	if err := c.DecodeToken(idTokenString, &claims); err != nil {
+		return nil, err
+	}
+	return &claims, nil
+}
+
+// DecodeAccessToken decodes the access token and verifies the signature.
+// The claims are returned in the AccessTokenClaims struct.
+func (c *Client) DecodeAccessToken(accessTokenString string) (*AccessTokenClaims, error) {
+	var claims AccessTokenClaims
+	if err := c.DecodeToken(accessTokenString, &claims); err != nil {
+		return nil, err
+	}
+	return &claims, nil
+}
+
+// DecodeToken decodes the token and verifies the signature.
+// The token is verified using the keys from the JWKS endpoint.
+// If the key is not found in the JWKS, the JWKS is refreshed and the key is looked up again.
+// This simple retry mechanism is used to catch up with key rotation.
+func (c *Client) DecodeToken(tokenString string, claims jwt.Claims) error {
+	retried := false
+	shouldRetry := false
+TO_RETRY:
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		kid, ok := token.Header["kid"].(string)
 		if !ok {
 			return nil, fmt.Errorf("kid not found in token header")
@@ -250,22 +303,55 @@ func (c *OidcClient) DecodeIDToken(idTokenString string) (*IDTokenClaims, error)
 		if alg != "RS256" {
 			return nil, fmt.Errorf("unexpected algorithm: %s", alg)
 		}
+		// If the kid is not found in the JWKS, retrieve the JWKS again once
 		if jwk, ok := c.jwks[kid]; ok {
 			return jwk.pub, nil
 		} else {
+			if !retried {
+				c.RetrieveJwks()
+				shouldRetry = true
+			}
 			return nil, fmt.Errorf("kid not found in the keyset: %s", kid)
 		}
-	}, jwt.WithAudience(c.cfg.ClientID), jwt.WithIssuer(c.metadata.Issuer))
+	}, jwt.WithAudience(c.cfg.ClientID), jwt.WithIssuer(c.oidcMetadata.Issuer))
+	if err != nil {
+		// If we haven't retried yet, retry once after retrieving the JWKS
+		if shouldRetry && !retried {
+			retried = true
+			shouldRetry = false
+			goto TO_RETRY
+		}
+		return err
+	}
+	return nil
+}
+
+// MakeCookieForAuthVerificationParams creates a cookie with the given name and value from the AuthVerificationParams.
+// The cookie is used to verify the state and nonce in the callback.
+// In order to get the AuthVerificationParams from the cookie, use GetAuthVerificationParamsFromCookie().
+func MakeCookieForAuthVerificationParams(cookieName string, params *AuthVerificationParams) *http.Cookie {
+	jsonBytes := mustMarshalJSON(params)
+	cookieValue := base64.RawURLEncoding.EncodeToString(jsonBytes)
+	return &http.Cookie{
+		Name:     cookieName,
+		Path:     "/",
+		Value:    cookieValue,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+}
+
+// GetAuthVerificationParamsFromCookie get the AuthVerificationParams from the cookie.
+// The cookie must have been created by MakeCookieForAuthVerificationParams().
+func GetAuthVerificationParamsFromCookie(cookie *http.Cookie) (*AuthVerificationParams, error) {
+	jsonBytes, err := base64.RawURLEncoding.DecodeString(cookie.Value)
 	if err != nil {
 		return nil, err
 	}
-	return &claims, nil
-}
-
-func generateCodeVerifier() ([]byte, error) {
-	return generateRandomBytes(CodeVerifierNBytes)
-}
-
-func generateCodeChallenge(codeVerifier []byte, method string) []byte {
-	return mustHashUsing(method, codeVerifier)
+	var params AuthVerificationParams
+	if err := json.Unmarshal(jsonBytes, &params); err != nil {
+		return nil, err
+	}
+	return &params, err
 }

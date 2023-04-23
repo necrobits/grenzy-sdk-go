@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 )
 
@@ -28,4 +29,20 @@ func generateRandomBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
 	_, err := rand.Read(buf)
 	return buf, err
+}
+
+func generateCodeVerifier() ([]byte, error) {
+	return generateRandomBytes(CodeVerifierNBytes)
+}
+
+func generateCodeChallenge(codeVerifier []byte, method string) []byte {
+	return mustHashUsing(method, codeVerifier)
+}
+
+func mustMarshalJSON(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
