@@ -1,4 +1,4 @@
-# GriffinID SDK for Golang Applications
+# GriffinID SDK for Golang
 
 You can use the SDK to integrate your Golang application with GriffinID, using the PKCE flow.
 
