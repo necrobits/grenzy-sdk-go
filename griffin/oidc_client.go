@@ -146,18 +146,18 @@ func (c *Client) GenerateLoginRequest(scopes []string) (*LoginRequest, error) {
 	codeVerifier, err := generateCodeVerifier()
 	codeVerifierStr := base64urlEncode(codeVerifier)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate code verifier for login request")
 	}
 	codeChallengeBytes := generateCodeChallenge(codeVerifier, CodeChallengeMethod)
 	codeChallengeStr := base64urlEncode(codeChallengeBytes)
 	nonceBytes, err := generateRandomBytes(NonceNBytes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate nonce for login request")
 	}
 	nonceStr := base64urlEncode(nonceBytes)
 	stateBytes, err := generateRandomBytes(StateNBytes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate state for login request")
 	}
 	stateStr := base64urlEncode(stateBytes)
 
@@ -347,11 +347,12 @@ func MakeCookieForAuthVerificationParams(cookieName string, params *AuthVerifica
 func GetAuthVerificationParamsFromCookie(cookie *http.Cookie) (*AuthVerificationParams, error) {
 	jsonBytes, err := base64.RawURLEncoding.DecodeString(cookie.Value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("malformed cookie. failed to retrieve auth verification params from cookie")
 	}
 	var params AuthVerificationParams
 	if err := json.Unmarshal(jsonBytes, &params); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("malformed cookie. failed to retrieve auth verification params from cookie")
 	}
+
 	return &params, err
 }

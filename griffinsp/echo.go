@@ -42,7 +42,6 @@ func (ge *EchoSupport) BuildLoginRequestHandler(scopes []string) echo.HandlerFun
 		cookie := griffin.MakeCookieForAuthVerificationParams(ge.authParamCookieName, loginRequest.AuthVerificationParams)
 		c.SetCookie(cookie)
 		// Redirect the user to the login page
-		fmt.Printf("Redirecting to %s\n", loginRequest.AuthURL)
 		return c.Redirect(http.StatusFound, loginRequest.AuthURL)
 	}
 }
@@ -60,17 +59,17 @@ func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.Handle
 		// Get the auth verification params from the cookie
 		cookie, err := c.Cookie(ge.authParamCookieName)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, err)
+			return c.JSON(http.StatusBadRequest, makeErrorObject(err))
 		}
 		authVerificationParams, err := griffin.GetAuthVerificationParamsFromCookie(cookie)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, err)
+			return c.JSON(http.StatusInternalServerError, makeErrorObject(err))
 		}
 		// Get the code and state from the query
 		code := c.QueryParam("code")
 		state := c.QueryParam("state")
 		if code == "" || state == "" {
-			return c.JSON(http.StatusBadRequest, "code or state is empty")
+			return c.JSON(http.StatusBadRequest, makeErrorObject(fmt.Errorf("code or state is empty")))
 		}
 		cbParams := &griffin.CallbackParams{
 			Code:  code,
@@ -78,7 +77,7 @@ func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.Handle
 		}
 		tokenResponse, err := ge.Client.HandleLoginCallback(cbParams, authVerificationParams)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusBadRequest, makeErrorObject(err))
 		}
 		// Pass the token response to the user defined callback function
 		return cbFunc(c, tokenResponse)
