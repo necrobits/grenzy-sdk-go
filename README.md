@@ -27,7 +27,7 @@ clientCfg := &griffin.ClientConfig{
     ClientID:          "clientid",
     ClientSecret:      "clientsecret",
     GriffinURL:        "http://localhost:3000",
-    OidcRedirectURL:       "http://localhost:3001/callback",
+    OidcRedirectURL:   "http://localhost:3001/callback",
 }
 griffinClient := griffin.NewClient(clientCfg)
 // Call the InitOidc method to initialize the client.
@@ -49,7 +49,7 @@ Handle the callback request
 
 ```golang
 router.GET("/callback", ge.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
-		userinfo, err := ge.oidc.GetUserInfo(tokenResponse.AccessToken)
+	userinfo, err := ge.oidc.GetUserInfo(tokenResponse.AccessToken)
 }))
 ```
 
