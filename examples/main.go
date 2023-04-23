@@ -19,21 +19,21 @@ func main() {
 	}
 	griffinClient := griffin.NewClient(clientCfg)
 	err := griffinClient.Init()
-	echoSup := griffinsp.NewEchoSupport(griffinClient)
-
 	if err != nil {
 		panic(err)
 	}
+	echoSp := griffinsp.NewEchoSupport(griffinClient)
+
 	e := echo.New()
 
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 
-	e.GET("/login", echoSup.BuildLoginRequestHandler([]string{"openid", "profile", "email"}))
+	e.GET("/login", echoSp.BuildLoginRequestHandler([]string{"openid", "profile", "email"}))
 
-	e.GET("/callback", echoSup.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
-		accessTokenClaims, err := griffinClient.DecodeAccessToken(tokenResponse.AccessToken)
+	e.GET("/callback", echoSp.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
+		accessTokenClaims, err := echoSp.Client.DecodeAccessToken(tokenResponse.AccessToken)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}

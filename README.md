@@ -39,17 +39,28 @@ err := griffinClient.Init()
 
 ### Echo
 
+Create the support object
+
+```golang
+import (
+    "github.com/necrobits/griffin-sdk-go/griffinsp"
+)
+// ...
+echoSp := griffinsp.NewEchoSupport(griffinClient)
+```
+
 Handle the login request
 
 ```golang
-router.GET("/login", ge.BuildLoginHandler([]string{"openid", "profile", "email"}))
+router.GET("/login", echoSp.BuildLoginHandler([]string{"openid", "profile", "email"}))
 ```
 
 Handle the callback request
 
 ```golang
-router.GET("/callback", ge.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
-	userinfo, err := ge.oidc.GetUserInfo(tokenResponse.AccessToken)
+router.GET("/callback", echoSp.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
+	userinfo, err := echoSp.Client.GetUserInfo(tokenResponse.AccessToken)
+    // ...
 }))
 ```
 

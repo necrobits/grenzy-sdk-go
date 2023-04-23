@@ -11,13 +11,13 @@ import (
 type EchoCallbackFunc func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error
 
 type EchoSupport struct {
-	oidc                *griffin.Client
+	Client              *griffin.Client
 	authParamCookieName string
 }
 
 func NewEchoSupport(oidcClient *griffin.Client) *EchoSupport {
 	return &EchoSupport{
-		oidc:                oidcClient,
+		Client:              oidcClient,
 		authParamCookieName: DefaultCookieName,
 	}
 }
@@ -34,7 +34,7 @@ func (ge *EchoSupport) SetAuthParamCookieName(name string) {
 //	router.GET("/login",  echoSup.BuildLoginRequestHandler([]string{"openid", "profile", "email"}))
 func (ge *EchoSupport) BuildLoginRequestHandler(scopes []string) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		loginRequest, err := ge.oidc.GenerateLoginRequest(scopes)
+		loginRequest, err := ge.Client.GenerateLoginRequest(scopes)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, err)
 		}
@@ -76,7 +76,7 @@ func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.Handle
 			Code:  code,
 			State: state,
 		}
-		tokenResponse, err := ge.oidc.HandleLoginCallback(cbParams, authVerificationParams)
+		tokenResponse, err := ge.Client.HandleLoginCallback(cbParams, authVerificationParams)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
