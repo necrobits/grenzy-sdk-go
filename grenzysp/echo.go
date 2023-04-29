@@ -1,21 +1,21 @@
-package griffinsp
+package grenzysp
 
 import (
 	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/necrobits/griffin-sdk-go/griffin"
+	"github.com/necrobits/grenzy-sdk-go/grenzy"
 )
 
-type EchoCallbackFunc func(c echo.Context, tokRes *griffin.TokenExchangeResponse) error
+type EchoCallbackFunc func(c echo.Context, tokRes *grenzy.TokenExchangeResponse) error
 
 type EchoSupport struct {
-	Client              *griffin.Client
+	Client              *grenzy.Client
 	authParamCookieName string
 }
 
-func NewEchoSupport(oidcClient *griffin.Client) *EchoSupport {
+func NewEchoSupport(oidcClient *grenzy.Client) *EchoSupport {
 	return &EchoSupport{
 		Client:              oidcClient,
 		authParamCookieName: DefaultCookieName,
@@ -39,7 +39,7 @@ func (ge *EchoSupport) BuildLoginRequestHandler(scopes []string) echo.HandlerFun
 			return c.JSON(http.StatusInternalServerError, err)
 		}
 		// Store the auth verification params in a cookie
-		cookie := griffin.MakeCookieForAuthVerificationParams(ge.authParamCookieName, loginRequest.AuthVerificationParams)
+		cookie := grenzy.MakeCookieForAuthVerificationParams(ge.authParamCookieName, loginRequest.AuthVerificationParams)
 		c.SetCookie(cookie)
 		// Redirect the user to the login page
 		return c.Redirect(http.StatusFound, loginRequest.AuthURL)
@@ -51,7 +51,7 @@ func (ge *EchoSupport) BuildLoginRequestHandler(scopes []string) echo.HandlerFun
 // This allows more flexibility for the user to handle the token response.
 // Example:
 //
-//	router.GET("/callback", ge.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
+//	router.GET("/callback", ge.BuildCallbackHandler(func(c echo.Context, tokenResponse *grenzy.TokenExchangeResponse) error {
 //		userinfo, err := ge.oidc.GetUserInfo(tokenResponse.AccessToken)
 //	}))
 func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.HandlerFunc {
@@ -61,7 +61,7 @@ func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.Handle
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, makeErrorObject(err))
 		}
-		authVerificationParams, err := griffin.GetAuthVerificationParamsFromCookie(cookie)
+		authVerificationParams, err := grenzy.GetAuthVerificationParamsFromCookie(cookie)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, makeErrorObject(err))
 		}
@@ -71,7 +71,7 @@ func (ge *EchoSupport) BuildCallbackHandler(cbFunc EchoCallbackFunc) echo.Handle
 		if code == "" || state == "" {
 			return c.JSON(http.StatusBadRequest, makeErrorObject(fmt.Errorf("code or state is empty")))
 		}
-		cbParams := &griffin.CallbackParams{
+		cbParams := &grenzy.CallbackParams{
 			Code:  code,
 			State: state,
 		}

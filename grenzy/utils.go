@@ -1,4 +1,4 @@
-package griffin
+package grenzy
 
 import (
 	"crypto/rand"

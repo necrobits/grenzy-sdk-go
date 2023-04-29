@@ -1,4 +1,4 @@
-package griffin
+package grenzy
 
 import "github.com/golang-jwt/jwt/v5"
 

@@ -1,4 +1,4 @@
-package griffin
+package grenzy
 
 import (
 	"crypto/rsa"
@@ -27,12 +27,12 @@ type parsedJwk struct {
 }
 
 type ClientConfig struct {
-	ClientID          string
-	ClientSecret      string
-	Domain            string
-	GriffinURL        string
-	GriffinBackendURL string // Dev only, not used in production
-	OidcRedirectURL   string
+	ClientID         string
+	ClientSecret     string
+	Domain           string
+	GrenzyURL        string
+	GrenzyBackendURL string // Dev only, not used in production
+	OidcRedirectURL  string
 }
 
 type OidcServerMetadata struct {
@@ -57,17 +57,17 @@ const (
 )
 
 func NewClient(cfg *ClientConfig) *Client {
-	if !(strings.HasPrefix(cfg.GriffinURL, "http://") || strings.HasPrefix(cfg.GriffinURL, "https://")) {
-		panic("GriffinURL must start with http:// or https://")
+	if !(strings.HasPrefix(cfg.GrenzyURL, "http://") || strings.HasPrefix(cfg.GrenzyURL, "https://")) {
+		panic("GrenzyURL must start with http:// or https://")
 	}
 	if cfg.ClientID == "" {
 		panic("ClientID must not be empty")
 	}
-	if cfg.GriffinBackendURL == "" {
-		cfg.GriffinBackendURL = cfg.GriffinURL
+	if cfg.GrenzyBackendURL == "" {
+		cfg.GrenzyBackendURL = cfg.GrenzyURL
 	}
 	httpClient := resty.New()
-	httpClient.SetHostURL(cfg.GriffinBackendURL)
+	httpClient.SetHostURL(cfg.GrenzyBackendURL)
 	httpClient.SetHeader("Content-Type", "application/json")
 	client := &Client{
 		http: httpClient,
@@ -103,7 +103,7 @@ func (c *Client) Init() error {
 
 func (c *Client) checkOidcInitialized() error {
 	if c.oidcMetadata == nil {
-		return fmt.Errorf("Griffin OIDC is not initialized. Perhaps you forgot to call InitOidc()? ")
+		return fmt.Errorf("Grenzy OIDC is not initialized. Perhaps you forgot to call InitOidc()? ")
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (c *Client) RetrieveJwks() error {
 }
 
 // GenerateLoginRequest generates a login request for the user to authenticate
-// with Griffin. This function returns a LoginRequest struct that contains the
+// with Grenzy. This function returns a LoginRequest struct that contains the
 // URL to redirect the user to and the verification parameters that must be
 // stored in the session, and passed to HandleLoginCallback() to verify the callback.
 func (c *Client) GenerateLoginRequest(scopes []string) (*LoginRequest, error) {

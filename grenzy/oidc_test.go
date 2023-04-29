@@ -1,26 +1,26 @@
-package griffin_test
+package grenzy_test
 
 import (
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/necrobits/griffin-sdk-go/griffin"
+	"github.com/necrobits/grenzy-sdk-go/grenzy"
 )
 
-var griffinClient *griffin.Client
-var clientCfg *griffin.ClientConfig
+var grenzyClient *grenzy.Client
+var clientCfg *grenzy.ClientConfig
 
 func setup() {
 	// setup code
-	clientCfg = &griffin.ClientConfig{
+	clientCfg = &grenzy.ClientConfig{
 		ClientID:        "r9eo4WLGPr8O",
 		ClientSecret:    "ulxwDX7fSCnN0p8D",
 		Domain:          "localhost:1234",
-		GriffinURL:      "http://localhost:4000",
+		GrenzyURL:       "http://localhost:4000",
 		OidcRedirectURL: "http://localhost:1234/callback",
 	}
-	griffinClient = griffin.NewClient(clientCfg)
+	grenzyClient = grenzy.NewClient(clientCfg)
 }
 
 func shutdown() {
@@ -35,12 +35,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestGenerateLoginURL(t *testing.T) {
-	loginRequest, err := griffinClient.GenerateLoginRequest([]string{"openid", "profile", "email"})
+	loginRequest, err := grenzyClient.GenerateLoginRequest([]string{"openid", "profile", "email"})
 	if err != nil {
 		t.Error(err)
 	}
-	if !strings.HasPrefix(loginRequest.AuthURL, clientCfg.GriffinURL) {
-		t.Error("AuthURL must start with GriffinURL")
+	if !strings.HasPrefix(loginRequest.AuthURL, clientCfg.GrenzyURL) {
+		t.Error("AuthURL must start with GrenzyURL")
 	}
 	t.Log("AuthURL:", loginRequest.AuthURL)
 }

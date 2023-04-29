@@ -1,8 +1,8 @@
-# GriffinID SDK for Golang
+# GrenzyID SDK for Golang
 
-You can use the SDK to integrate your Golang application with GriffinID, using the PKCE flow.
+You can use the SDK to integrate your Golang application with GrenzyID, using the PKCE flow.
 
-The SDK can be used independently, or you can integrate it with your favorite web framework using the `griffinsp` package.
+The SDK can be used independently, or you can integrate it with your favorite web framework using the `grenzysp` package.
 
 Currently support OpenID Connect (OIDC) only.
 
@@ -11,28 +11,28 @@ Currently support OpenID Connect (OIDC) only.
 Get the SDK
 
 ```
-go get -u github.com/necrobits/griffin-sdk-go
+go get -u github.com/necrobits/grenzy-sdk-go
 ```
 
-Create a new GriffinID client
+Create a new GrenzyID client
 
 ```golang
 import (
-    "github.com/necrobits/griffin-sdk-go/griffin"
+    "github.com/necrobits/grenzy-sdk-go/grenzy"
 )
 
 //...
 
-clientCfg := &griffin.ClientConfig{
+clientCfg := &grenzy.ClientConfig{
     ClientID:          "clientid",
     ClientSecret:      "clientsecret",
-    GriffinURL:        "http://localhost:3000",
+    GrenzyURL:        "http://localhost:3000",
     OidcRedirectURL:   "http://localhost:3001/callback",
 }
-griffinClient := griffin.NewClient(clientCfg)
+grenzyClient := grenzy.NewClient(clientCfg)
 // Call the InitOidc method to initialize the client.
-// This method retrieves the OpenID configuration from the GriffinID server.
-err := griffinClient.Init()
+// This method retrieves the OpenID configuration from the GrenzyID server.
+err := grenzyClient.Init()
 ```
 
 ## Supported frameworks
@@ -43,10 +43,10 @@ Create the support object
 
 ```golang
 import (
-    "github.com/necrobits/griffin-sdk-go/griffinsp"
+    "github.com/necrobits/grenzy-sdk-go/grenzysp"
 )
 // ...
-echoSp := griffinsp.NewEchoSupport(griffinClient)
+echoSp := grenzysp.NewEchoSupport(grenzyClient)
 ```
 
 Handle the login request
@@ -58,7 +58,7 @@ router.GET("/login", echoSp.BuildLoginHandler([]string{"openid", "profile", "ema
 Handle the callback request
 
 ```golang
-router.GET("/callback", echoSp.BuildCallbackHandler(func(c echo.Context, tokenResponse *griffin.TokenExchangeResponse) error {
+router.GET("/callback", echoSp.BuildCallbackHandler(func(c echo.Context, tokenResponse *grenzy.TokenExchangeResponse) error {
     userinfo, err := echoSp.Client.GetUserInfo(tokenResponse.AccessToken)
     // ...
 }))
