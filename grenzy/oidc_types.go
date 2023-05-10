@@ -20,6 +20,7 @@ type LoginRequest struct {
 
 type IDTokenClaims struct {
 	jwt.RegisteredClaims
+	UserID   string   `json:"uid,omitempty"`
 	Nonce    string   `json:"nonce,omitempty"`
 	AuthTime int64    `json:"auth_time,omitempty"`
 	AMR      []string `json:"amr,omitempty"`
@@ -28,6 +29,8 @@ type IDTokenClaims struct {
 
 type AccessTokenClaims struct {
 	jwt.RegisteredClaims
+	UserID    string `json:"uid,omitempty"`
+	ClientID  string `json:"cid,omitempty"`
 	SessionID string `json:"sid,omitempty"`
 	Scopes    string `json:"scopes,omitempty"`
 	AuthTime  int64  `json:"auth_time,omitempty"`
