@@ -37,15 +37,15 @@ type ClientConfig struct {
 
 type OidcServerMetadata struct {
 	Issuer                        string   `json:"issuer"`
-	AuthorizationEndpoint         string   `json:"authorization_endpoint"`
-	TokenEndpoint                 string   `json:"token_endpoint"`
-	JwksURI                       string   `json:"jwks_uri"`
-	UserInfoEndpoint              string   `json:"userinfo_endpoint"`
-	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
-	GrantTypesSupported           []string `json:"grant_types_supported"`
-	ScopesSupported               []string `json:"scopes_supported"`
-	ResponseTypesSupported        []string `json:"response_types_supported"`
-	AcrValuesSupported            []string `json:"acr_values_supported"`
+	AuthorizationEndpoint         string   `json:"authorizationEndpoint"`
+	TokenEndpoint                 string   `json:"tokenEndpoint"`
+	JwksURI                       string   `json:"jwksUri"`
+	UserInfoEndpoint              string   `json:"userinfoEndpoint"`
+	CodeChallengeMethodsSupported []string `json:"codeChallengeMethodsSupported"`
+	GrantTypesSupported           []string `json:"grantTypesSupported"`
+	ScopesSupported               []string `json:"scopesSupported"`
+	ResponseTypesSupported        []string `json:"responseTypesSupported"`
+	AcrValuesSupported            []string `json:"acrValuesSupported"`
 }
 
 const (
